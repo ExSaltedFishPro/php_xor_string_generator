@@ -5,7 +5,7 @@ Generate a PHP Expression that equals to the given string using XOR operations. 
 ## Usage
 
 ```shell
-python php_xor_string_generator.py "system('id');"
+python php_xor_string_generator.py "system('id');" --fixed-len 3 --support-chars "0123456789+-*/().~^|&"
 ```
 This will output a PHP expression that evaluates to `system('id');` when executed.
 ```python

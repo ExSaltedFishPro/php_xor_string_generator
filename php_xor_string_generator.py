@@ -141,11 +141,15 @@ class XOREncoder:
 
             
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate PHP XOR string literals.")
+    parser = argparse.ArgumentParser(description="Generate PHP XOR string expressions.")
     parser.add_argument("string", help="The string to encode.")
-    parser.add_argument("--fixed-len", type=int, default=3, help="Fixed length of XOR components.")
+    parser.add_argument("--fixed-len", type=int, help="Fixed length of XOR components.")
     parser.add_argument("--support-chars", type=str, default="0123456789+-*/().~^|&", help="Characters to use for XOR encoding.")
     args = parser.parse_args()
+    print("""""PHP XOR String Generator
+------------------------------------------""")
+    print(f"Using support chars: {args.support_chars}")
+
     encoder = XOREncoder(XOREncoder.str_to_ord_list(args.support_chars), fixed_len=args.fixed_len)
 
     try:

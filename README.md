@@ -1,30 +1,41 @@
 # PHP XOR String Generator
 
-Generate a PHP Expression that equals to the given string using XOR operations. This can be useful for obfuscating strings in PHP code.
+Generate PHP expressions that evaluate to arbitrary strings using only XOR of allowed characters. Useful for simple payload obfuscation or when restricting the character set in PHP source.
 
-## Usage
+## What it does
+- Builds a mapping from each byte (0-255) to an XOR tuple drawn from the provided support characters.
+- Supports fixed-length tuples to keep all components the same size (default is auto-chosen to cover every byte).
+- Exposes both a CLI and a Python API.
 
+## Requirements
+- Python 3.9+ (uses type-hinted builtins like `list[int]`).
+
+## CLI usage
 ```shell
 python php_xor_string_generator.py "system('id');" --fixed-len 3 --support-chars "0123456789+-*/().~^|&"
 ```
-This will output a PHP expression that evaluates to `system('id');` when executed.
+Outputs a PHP expression such as `'0+'^'4*'^'…'` that evaluates to the original string.
+
+### Arguments
+- `string` (positional): The string to encode.
+- `--fixed-len`: Force a specific tuple length. If omitted, the tool recommends one that can represent all bytes for the given support set.
+- `--support-chars`: Characters allowed in each XOR component (default: `0123456789+-*/().~^|&`).
+
+### Notes
+- If you pick a fixed length that cannot represent some bytes, encoding those characters raises `UnsupportedCharacterError`.
+- Auto-recommended length aims to cover every byte using the supplied support characters.
+
+## Python API
 ```python
 from php_xor_string_generator import XOREncoder
-encoder = XOREncoder(XOREncoder.str_to_ord_list("system('id');"))
-php_expression = encoder.to_php_expression("system('id');")
-print(php_expression)
+
+support = XOREncoder.str_to_ord_list("0123456789+-*/().~^|&")
+encoder = XOREncoder(support, fixed_len=3)  # omit fixed_len to auto-recommend
+
+php_expr = encoder.to_php_expression("system('id');")
+print(php_expr)
 ```
 
-## Arguments
-
-`0123456789+-*/().~^|&`
-
-It needs fixed length of 3 to cover all bytes.
-
-You can customize the supported characters and fixed length as needed.
-
-The script will automatically recommend a fixed length based on the supported characters if not provided.
-
-You can also use the `recommend_fixed_len` method to get a recommended fixed length based on the supported characters.
-
-The recommended fixed length is calculated to ensure all byte values (0-255) can be represented using the provided supported characters. But if you want to use a lower fixed length, you can specify it manually,but it may not cover all byte values and could raise an error if the string contains unsupported characters.
+## FAQ
+- **Why fixed length?** PHP strings XOR operations will automatically cut off to the shortest length, so using equal-length tuples keeps XOR parts aligned and predictable; shorter lengths may fail to cover all bytes.
+- **How is the recommendation computed?** A BFS finds shortest tuples per byte; the maximum tuple length across all bytes becomes the suggested fixed length.

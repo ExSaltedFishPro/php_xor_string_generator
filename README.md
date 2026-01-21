@@ -4,7 +4,7 @@ Generate PHP expressions that evaluate to arbitrary strings using only XOR of al
 
 ## What it does
 - Builds a mapping from each byte (0-255) to an XOR tuple drawn from the provided support characters.
-- Supports fixed-length tuples to keep all components the same size (default is auto-chosen to cover every byte).
+- Supports fixed-length tuples to keep all components the same size (default is auto-chosen to cover all reachable bytes).
 - Exposes both a CLI and a Python API.
 
 ## Requirements
@@ -18,12 +18,16 @@ Outputs a PHP expression such as `'0+'^'4*'^'…'` that evaluates to the origina
 
 ### Arguments
 - `string` (positional): The string to encode.
-- `--fixed-len`: Force a specific tuple length. If omitted, the tool recommends one that can represent all bytes for the given support set.
-- `--support-chars`: Characters allowed in each XOR component (default: `0123456789+-*/().~^|&`).
+- `--fixed-len`: Force a specific tuple length. If omitted, the tool recommends one that can represent all reachable bytes for the given support set.
+- `--support-chars`: Characters allowed in each XOR component. If omitted, defaults to `0-9`, `a-z`, `A-Z`, punctuation, and space.
+- `--support-regex`: Regex pattern used to add support characters from printable ASCII (merged with `--support-chars`).
+- `--blocked-chars`: Characters to exclude from the final support set.
+- `--blocked-regex`: Regex pattern to exclude characters from the final support set.
 
 ### Notes
 - If you pick a fixed length that cannot represent some bytes, encoding those characters raises `UnsupportedCharacterError`.
-- Auto-recommended length aims to cover every byte using the supplied support characters.
+- Auto-recommended length aims to cover every reachable byte using the supplied support characters.
+- If some bytes are unreachable with your support set, encoding those characters will fail even with auto length.
 
 ## Python API
 ```python

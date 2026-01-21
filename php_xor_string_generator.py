@@ -1,6 +1,8 @@
 from collections import deque
 from typing import Dict, Tuple, List, Optional
 import argparse
+import re
+import string
 class XOREncoder:
     class UnsupportedCharacterError(Exception):
         pass
@@ -87,7 +89,7 @@ class XOREncoder:
         self.dictionary = d
         return d
 
-    def __init__(self, support_chars: list[int],fixed_len=None):
+    def __init__(self, support_chars: list[int],fixed_len=None, intended_input=None):
         if fixed_len:
             assert fixed_len >1
             self.fixed_len = fixed_len
@@ -99,7 +101,10 @@ class XOREncoder:
 
         self.dictionary: dict[int, Tuple[int, ...]] = {}
         if fixed_len is None:
-            self.fixed_len = self.recommend_fixed_len()
+            if intended_input:
+                self.fixed_len = self.recommend_fixed_len_with_target(intended_input)
+            else:
+                self.fixed_len = self.recommend_fixed_len()
             self.generate_dictionary_fixed_len(self.fixed_len)
         else:
             self.generate_dictionary_fixed_len(fixed_len)
@@ -124,12 +129,10 @@ class XOREncoder:
             targets.append(self.dictionary.get(i))
         for i in range(self.fixed_len):
             part = ""
-            if s[i] not in self.dictionary:
-                raise XOREncoder.UnsupportedCharacterError(f"Character {s[i]!r} (ord={ord(s[i])}) not supported.")
             for t in targets:
                 part += chr(t[i])
             parts.append(part)
-        return '^'.join("'"+parts+"'" for parts in parts)
+        return '^'.join("'" + p + "'" for p in parts)
     
     def recommend_fixed_len(self) -> int:
         dic = self.generate_dictionary()
@@ -139,17 +142,45 @@ class XOREncoder:
                 max_len = len(v)
         return max_len
 
+    def recommend_fixed_len_with_target(self, target: str) -> int:
+        dic = self.generate_dictionary()
+        max_len = 0
+        for c in target:
+            o = ord(c)
+            if o not in dic:
+                raise XOREncoder.UnsupportedCharacterError(f"Character {c!r} (ord={o}) not supported.")
+            v = dic[o]
+            if len(v) > max_len:
+                max_len = len(v)
+        return max_len
             
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate PHP XOR string expressions.")
     parser.add_argument("string", help="The string to encode.")
     parser.add_argument("--fixed-len", type=int, help="Fixed length of XOR components.")
-    parser.add_argument("--support-chars", type=str, default="0123456789+-*/().~^|&", help="Characters to use for XOR encoding.")
+    parser.add_argument("--support-chars", type=str, help="Characters to use for XOR encoding.")
+    parser.add_argument("--support-regex", type=str, help="Regex pattern to generate support characters.")
+    parser.add_argument("--blocked-chars", type=str, help="Characters to exclude from support characters.")
+    parser.add_argument("--blocked-regex", type=str, help="Regex pattern to exclude characters from support characters.")
     args = parser.parse_args()
-    print("""""PHP XOR String Generator
+    print("""PHP XOR String Generator
 ------------------------------------------""")
-    print(f"Using support chars: {args.support_chars}")
-
+    printable = string.digits + string.ascii_letters + string.punctuation + ' '
+    #build support chars
+    if not args.support_chars:
+        args.support_chars = ""
+    if args.support_regex:
+        pattern = re.compile(args.support_regex)
+        args.support_chars += ''.join(i for i in string.printable if pattern.fullmatch(i))
+    if not args.support_chars:
+        args.support_chars = printable
+    #remove blocked chars
+    if args.blocked_regex:
+        pattern = re.compile(args.blocked_regex)
+        args.support_chars = ''.join(c for c in args.support_chars if not pattern.fullmatch(c))
+    if args.blocked_chars:
+        args.support_chars = ''.join(c for c in args.support_chars if c not in args.blocked_chars)
+    print(f"Using support chars: {args.support_chars!r}")
     encoder = XOREncoder(XOREncoder.str_to_ord_list(args.support_chars), fixed_len=args.fixed_len)
 
     try:

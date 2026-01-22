@@ -89,9 +89,10 @@ class XOREncoder:
         self.dictionary = d
         return d
 
-    def __init__(self, support_chars: list[int],fixed_len=None, intended_input=None):
-        if fixed_len:
-            assert fixed_len >1
+    def __init__(self, support_chars: list[int],fixed_len=None, intended_input=None, unsafe=False):
+        self.unsafe = unsafe
+        if fixed_len is not None:
+            assert fixed_len >= 1
             self.fixed_len = fixed_len
         for x in support_chars:
             if not isinstance(x, int) or not (0 <= x <= 255):
@@ -125,15 +126,35 @@ class XOREncoder:
         targets = []
         for i in s:
             if self.dictionary.get(i) is None or len(self.dictionary.get(i)) != self.fixed_len:
-                raise XOREncoder.UnsupportedCharacterError(f"Character {chr(i)!r} (ord={i}) not supported.")
+                raise XOREncoder.UnsupportedCharacterError(f"Character {chr(i)!r} (ord={i}) not supported. Try increasing fixed_len or use --unsafe mode.")
             targets.append(self.dictionary.get(i))
         for i in range(self.fixed_len):
             part = ""
             for t in targets:
                 part += chr(t[i])
             parts.append(part)
-        return '^'.join("'" + p + "'" for p in parts)
+        return self._join_parts_with_quotes(parts, "'")
+
+
     
+    def _join_parts_with_quotes(self, parts: List[str], quote_char: str) -> str:
+        new_parts = []
+        for p in parts:
+            if not self.unsafe:
+                new_parts.append(p)
+                continue
+            p = p.replace("\\", "\\\\")
+            if quote_char == "'":
+                p = p.replace("'", "\\'")
+            if quote_char == '"':
+                # high possibilities to cause issues in some cases, so commented out
+                # p = p.replace('"', '\\"')
+                p = p.replace('$', '\\$')
+            new_parts.append(p)
+        parts = new_parts
+        return '^'.join(quote_char + p + quote_char for p in parts)
+
+
     def recommend_fixed_len(self) -> int:
         dic = self.generate_dictionary()
         max_len = 0
@@ -148,7 +169,7 @@ class XOREncoder:
         for c in target:
             o = ord(c)
             if o not in dic:
-                raise XOREncoder.UnsupportedCharacterError(f"Character {c!r} (ord={o}) not supported.")
+                raise XOREncoder.UnsupportedCharacterError(f"Character {c!r} (ord={o}) not supported. Try increasing fixed_len or use --unsafe mode.")
             v = dic[o]
             if len(v) > max_len:
                 max_len = len(v)
@@ -162,26 +183,34 @@ if __name__ == "__main__":
     parser.add_argument("--support-regex", type=str, help="Regex pattern to generate support characters.")
     parser.add_argument("--blocked-chars", type=str, help="Characters to exclude from support characters.")
     parser.add_argument("--blocked-regex", type=str, help="Regex pattern to exclude characters from support characters.")
+    parser.add_argument("--unsafe", action="store_true", help="Use unsafe mode: include all printable characters including as support characters.",default=False)
     args = parser.parse_args()
     print("""PHP XOR String Generator
 ------------------------------------------""")
-    printable = string.digits + string.ascii_letters + string.punctuation + ' '
+    if not args.unsafe:
+        print("Using safe mode: only alphanumeric and common symbols are used as support characters.")
+        candidate = string.digits + string.ascii_letters + r"""!"#$%&()*+,-./:;<=>?@[]^_`{|}~""" + ' '
+    else:
+        candidate = string.digits + string.ascii_letters + r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~""" + ' '
     #build support chars
     if not args.support_chars:
         args.support_chars = ""
     if args.support_regex:
         pattern = re.compile(args.support_regex)
-        args.support_chars += ''.join(i for i in string.printable if pattern.fullmatch(i))
+        args.support_chars += ''.join(i for i in candidate if pattern.fullmatch(i))
     if not args.support_chars:
-        args.support_chars = printable
+        args.support_chars = candidate
     #remove blocked chars
     if args.blocked_regex:
         pattern = re.compile(args.blocked_regex)
         args.support_chars = ''.join(c for c in args.support_chars if not pattern.fullmatch(c))
     if args.blocked_chars:
         args.support_chars = ''.join(c for c in args.support_chars if c not in args.blocked_chars)
+    if not args.unsafe:
+        #ensure safe mode
+        args.support_chars = args.support_chars.replace("'", "").replace('\\', '')
     print(f"Using support chars: {args.support_chars!r}")
-    encoder = XOREncoder(XOREncoder.str_to_ord_list(args.support_chars), fixed_len=args.fixed_len)
+    encoder = XOREncoder(XOREncoder.str_to_ord_list(args.support_chars), fixed_len=args.fixed_len, unsafe=args.unsafe)
 
     try:
         php_literal = encoder.to_php_expression(args.string)

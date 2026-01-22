@@ -19,15 +19,17 @@ Outputs a PHP expression such as `'0+'^'4*'^'…'` that evaluates to the origina
 ### Arguments
 - `string` (positional): The string to encode.
 - `--fixed-len`: Force a specific tuple length. If omitted, the tool recommends one that can represent all reachable bytes for the given support set.
-- `--support-chars`: Characters allowed in each XOR component. If omitted, defaults to `0-9`, `a-z`, `A-Z`, punctuation, and space.
+- `--support-chars`: Characters allowed in each XOR component. If omitted, defaults to `0-9`, `a-z`, `A-Z`, punctuation, and space (safe mode).
 - `--support-regex`: Regex pattern used to add support characters from printable ASCII (merged with `--support-chars`).
 - `--blocked-chars`: Characters to exclude from the final support set.
 - `--blocked-regex`: Regex pattern to exclude characters from the final support set.
+- `--unsafe`: Include all printable characters (including `'` and `\`) in the support set and enable escaping when emitting PHP string parts.
 
 ### Notes
 - If you pick a fixed length that cannot represent some bytes, encoding those characters raises `UnsupportedCharacterError`.
 - Auto-recommended length aims to cover every reachable byte using the supplied support characters.
 - If some bytes are unreachable with your support set, encoding those characters will fail even with auto length.
+- In safe mode, `'` and `\` are removed from the support set to avoid breaking PHP string literals.
 
 ## Python API
 ```python
